@@ -1,0 +1,298 @@
+rules_version = '2';
+
+// =============================================================================
+// KoboAds — full Firestore security rules
+//
+// Covers every collection the app reads/writes:
+//   users, campaigns, adDeliveries, transactions, withdrawals, referrals,
+//   categories, locations, ageRanges, appConfig
+//
+// Every write is validated against the exact shape the app sends (see
+// src/services/*.ts) — not just "is this your document", but "does this
+// payload look like something the app is actually allowed to send".
+//
+// KNOWN LIMITATION (documented, not hidden): wallet/earnings balances are
+// still mutated by the signed-in client via runTransaction() calls in
+// src/services/walletService.ts and deliveryService.ts. These rules constrain
+// *which* fields can change and enforce type/bounds checks, but a
+// sufficiently motivated user could still call Firestore's SDK directly with
+// a crafted transaction. The fix is to move those mutations into Cloud
+// Functions using the Admin SDK (which bypasses rules entirely) and deny all
+// direct client writes to money fields. Until then, these rules are the best
+// available guardrail, not a substitute for that migration.
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------------
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function incomingData() {
+      return request.resource.data;
+    }
+
+    function existingData() {
+      return resource.data;
+    }
+
+    // True if this update only touches keys inside `allowed` (a list).
+    function onlyChanges(allowed) {
+      return incomingData().diff(existingData()).affectedKeys().hasOnly(allowed);
+    }
+
+    function isNonNegativeNumber(v) {
+      return v is number && v >= 0;
+    }
+
+    function isNonEmptyString(v) {
+      return v is string && v.size() > 0;
+    }
+
+    // ---------------------------------------------------------------------
+    // users/{uid}
+    //   Written by: authService.registerUser (create), userService
+    //   (updateProfileFields, setReceivesAds, ensureDailyReset), and the
+    //   runTransaction() calls in walletService/deliveryService.
+    // ---------------------------------------------------------------------
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+
+      // Registration payload — see authService.ts registerUser().
+      allow create: if isOwner(uid)
+        && incomingData().name is string
+        && incomingData().email is string
+        && incomingData().phone is string
+        && incomingData().location is string
+        && incomingData().accountType in ['exchange', 'paid']
+        && incomingData().role in ['user', 'advertiser']
+        && incomingData().receivesAds is bool
+        && incomingData().isPremium == false
+        && isNonEmptyString(incomingData().referralCode)
+        && incomingData().walletBalance == 0
+        && incomingData().earningsBalance == 0
+        && incomingData().adsViewedToday == 0
+        && incomingData().totalAdsViewed == 0
+        && incomingData().createdAt == request.time;
+
+      // An update must be EXACTLY one of these shapes — never a mix, and
+      // never touching a field outside the ones listed for that shape.
+      allow update: if isOwner(uid) && (
+        // updateProfileFields()
+        (onlyChanges(['name', 'phone', 'location', 'businessName'])
+          && (!('name' in incomingData().diff(existingData()).affectedKeys()) || incomingData().name is string)
+          && (!('phone' in incomingData().diff(existingData()).affectedKeys()) || incomingData().phone is string)
+          && (!('location' in incomingData().diff(existingData()).affectedKeys()) || incomingData().location is string)
+          && (!('businessName' in incomingData().diff(existingData()).affectedKeys()) || incomingData().businessName is string))
+
+        // setReceivesAds()
+        || (onlyChanges(['receivesAds', 'accountType'])
+          && incomingData().receivesAds is bool
+          && incomingData().accountType in ['exchange', 'paid'])
+
+        // ensureDailyReset()
+        || (onlyChanges(['adsViewedToday', 'lastAdsResetDate'])
+          && incomingData().adsViewedToday == 0
+          && incomingData().lastAdsResetDate is string)
+
+        // topUpWallet() / debitWalletForCampaign() — wallet balance must stay >= 0.
+        || (onlyChanges(['walletBalance']) && isNonNegativeNumber(incomingData().walletBalance))
+
+        // withdrawFunds() — earnings balance must stay >= 0 and can only decrease.
+        || (onlyChanges(['earningsBalance'])
+          && isNonNegativeNumber(incomingData().earningsBalance)
+          && incomingData().earningsBalance <= existingData().earningsBalance)
+
+        // deliveryService.watchAd() — earn a reward for watching an ad.
+        || (onlyChanges(['earningsBalance', 'adsViewedToday', 'totalAdsViewed', 'lastAdsResetDate'])
+          && isNonNegativeNumber(incomingData().earningsBalance)
+          && incomingData().earningsBalance >= existingData().earningsBalance
+          && isNonNegativeNumber(incomingData().adsViewedToday)
+          && isNonNegativeNumber(incomingData().totalAdsViewed)
+          && incomingData().totalAdsViewed >= existingData().totalAdsViewed)
+      );
+
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // campaigns/{campaignId}
+    //   Written by: campaignService.createCampaign (create),
+    //   campaignService.setCampaignStatus + adEngine.distributeCampaign (update).
+    // ---------------------------------------------------------------------
+    match /campaigns/{campaignId} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && incomingData().advertiserId == request.auth.uid
+        && isNonEmptyString(incomingData().title)
+        && incomingData().description is string
+        && incomingData().category is string
+        && incomingData().location is string
+        && incomingData().targetReach is number && incomingData().targetReach > 0
+        && incomingData().delivered == 0
+        && incomingData().opened == 0
+        && incomingData().clicked == 0
+        && incomingData().spent is number && incomingData().spent >= 0
+        && incomingData().status == 'active'
+        && incomingData().campaignType in ['exchange', 'paid']
+        && incomingData().createdAt == request.time;
+
+      // Only the advertiser who created it can update — either to pause/resume
+      // (setCampaignStatus) or to bump delivery counters (adEngine, right after
+      // creation, in the same request the advertiser is signed in for).
+      allow update: if isSignedIn() && existingData().advertiserId == request.auth.uid && (
+        (onlyChanges(['status']) && incomingData().status in ['active', 'paused', 'completed'])
+        || (onlyChanges(['delivered']) && incomingData().delivered is number && incomingData().delivered >= existingData().delivered)
+        || (onlyChanges(['opened']) && incomingData().opened is number && incomingData().opened >= existingData().opened)
+        || (onlyChanges(['clicked']) && incomingData().clicked is number && incomingData().clicked >= existingData().clicked)
+      );
+
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // adDeliveries/{deliveryId}
+    //   Written by: adEngine.distributeCampaign (create, by the advertiser),
+    //   deliveryService.watchAd (update, by the recipient).
+    // ---------------------------------------------------------------------
+    match /adDeliveries/{deliveryId} {
+      allow read: if isSignedIn();
+
+      // Delivery records are now created by Cloud Functions, not by the client.
+      allow create: if false;
+
+      // Only the recipient can mark their own delivery as opened/clicked, and
+      // only moving forward: delivered -> opened -> clicked.
+      allow update: if isSignedIn() && existingData().userId == request.auth.uid && (
+        (existingData().status == 'delivered' && incomingData().status == 'opened'
+          && onlyChanges(['status', 'openedAt']))
+        || (existingData().status == 'opened' && incomingData().status == 'clicked'
+          && onlyChanges(['status', 'clickedAt']))
+      );
+
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // transactions/{txId}  (append-only ledger — never editable once written)
+    //   Written by: walletService.topUpWallet/debitWalletForCampaign/
+    //   withdrawFunds, deliveryService.watchAd.
+    // ---------------------------------------------------------------------
+    match /transactions/{txId} {
+      allow read: if isSignedIn() && existingData().userId == request.auth.uid;
+
+      // Transaction ledger rows are created by Cloud Functions, not by the client.
+      allow create: if false;
+
+      allow update, delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // withdrawals/{id}
+    //   Written by: walletService.withdrawFunds (create only — status
+    //   transitions to success/failed would be an admin/Cloud Function action,
+    //   not implemented on the client yet).
+    // ---------------------------------------------------------------------
+    match /withdrawals/{id} {
+      allow read: if isSignedIn() && existingData().userId == request.auth.uid;
+
+      // Withdrawal requests are created by Cloud Functions, not by the client.
+      allow create: if false;
+
+      allow update, delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // referrals/{id}
+    //   Not yet written by the client (referral linking on signup isn't wired
+    //   up in the UI yet — see ReferralScreen notes). Rules are ready for when
+    //   it is: only the referrer can read their own referrals, and a referral
+    //   can only be created naming the creator as the referrer.
+    // ---------------------------------------------------------------------
+    match /referrals/{id} {
+      allow read: if isSignedIn() && existingData().referrerId == request.auth.uid;
+
+      allow create: if isSignedIn()
+        && request.auth.uid == request.resource.data.referredId
+        && incomingData().referrerId is string
+        && incomingData().referredId is string
+        && incomingData().referredName is string
+        && incomingData().status == 'pending'
+        && incomingData().reward == 0
+        && incomingData().createdAt == request.time;
+
+      allow update, delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // Reference/config data — populated by scripts/seedFirestore.js via the
+    // Admin SDK (which bypasses these rules entirely). Public read since it's
+    // non-sensitive and the app needs it before sign-in on some screens.
+    // ---------------------------------------------------------------------
+    match /categories/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /locations/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /ageRanges/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /appConfig/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /mediaModeration/{mediaId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.storagePath is string
+        && request.resource.data.contentType is string
+        && request.resource.data.sizeBytes is number
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    match /abuseReports/{reportId} {
+      allow read: if isSignedIn() && (resource.data.reporterId == request.auth.uid || request.auth.token.admin == true);
+
+      allow create: if isSignedIn()
+        && request.resource.data.reporterId == request.auth.uid
+        && (request.resource.data.reportedCampaignId is string || request.resource.data.reportedCampaignId == null)
+        && (request.resource.data.reportedUserId is string || request.resource.data.reportedUserId == null)
+        && request.resource.data.type in ['spam', 'fraud', 'abusive', 'other']
+        && request.resource.data.details is string
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // Deny everything else by default (explicit, even though Firestore
+    // already denies unmatched paths — this documents the intent).
+    // ---------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

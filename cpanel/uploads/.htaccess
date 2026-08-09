@@ -1,0 +1,8 @@
+# Prevent PHP execution inside the uploads folder (defense in depth —
+# uploaded files should only ever be images/video served statically).
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+<FilesMatch "\.(php|phtml|php\d)$">
+    Require all denied
+</FilesMatch>
