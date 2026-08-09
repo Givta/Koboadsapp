@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import Button from '../../components/Button';
@@ -17,11 +17,8 @@ interface Props {
   };
 }
 
-const images = [
-  { source: require('../../../assets/file_000000008a9c81f4b7004548dd8ea144.png'), label: 'Share this with your referral link', shareable: true },
-];
-
 export default function WaitlistScreen({ route }: Props) {
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [whatsappNumber, setWhatsappNumber] = useState('');
@@ -29,13 +26,6 @@ export default function WaitlistScreen({ route }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ referralCode: string; joinLink: string } | null>(null);
-  const [selectedImage, setSelectedImage] = useState<number | null>(null);
-
-  const selectedImageUri = useMemo(() => {
-    if (selectedImage === null) return null;
-    return Image.resolveAssetSource(images[selectedImage].source).uri;
-  }, [selectedImage]);
-
   useEffect(() => {
     const ref = route.params?.ref;
     if (ref) setReferralCode(ref.toUpperCase());
@@ -63,31 +53,6 @@ export default function WaitlistScreen({ route }: Props) {
       });
     } catch {
       Alert.alert('Share', 'Unable to open share options on this device.');
-    }
-  };
-
-  const handleOpenPreview = (index: number) => {
-    setSelectedImage(index);
-  };
-
-  const handleClosePreview = () => {
-    setSelectedImage(null);
-  };
-
-  const handleDownload = async () => {
-    if (!selectedImageUri) return;
-    if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      const anchor = document.createElement('a');
-      anchor.href = selectedImageUri;
-      anchor.download = `koboads-image-${selectedImage! + 1}.png`;
-      anchor.click();
-      return;
-    }
-
-    try {
-      await Linking.openURL(selectedImageUri);
-    } catch {
-      Alert.alert('Download', 'Unable to download from this device. Please save the image manually.');
     }
   };
 
@@ -125,6 +90,20 @@ export default function WaitlistScreen({ route }: Props) {
           <Text style={styles.title}>Join the KoboAds waitlist</Text>
           <Text style={styles.subtitle}>KoboAds is a new advertising platform built for small businesses, shop owners, and creators who want to reach local customers without wasting money. Join the waitlist to get early access to simple ad campaigns, referral rewards, and a launch experience designed to support Nigeria-based businesses.</Text>
 
+          <View style={styles.howItWorksCard}>
+            <Text style={styles.sectionTitle}>How KoboAds Works</Text>
+            <Text style={styles.paragraph}>
+              <Text style={styles.boldText}>KoboAds is a free advertising network built around a simple exchange: you advertise, and you receive ads from other businesses.</Text>
+            </Text>
+            <Text style={styles.paragraph}>As a participating user, you can send <Text style={styles.boldText}>your advertisements every day</Text>. Each advertisement can be distributed to <Text style={styles.boldText}>up to 1,000 different users</Text>, giving you a potential:</Text>
+            <Text style={styles.paragraph}><Text style={styles.boldText}>2,000 Total Reach (TR) every day</Text></Text>
+            <Text style={styles.paragraph}><Text style={styles.boldText}>Up to 60,000 Total Reach (TR) every month</Text></Text>
+            <Text style={styles.paragraph}>In return, you agree to receive advertisements from other KoboAds participants.</Text>
+            <Text style={styles.paragraph}><Text style={styles.boldText}>Don't want to receive ads?</Text> You can still advertise by choosing our <Text style={styles.boldText}>paid advertising option</Text>.</Text>
+            <Text style={styles.paragraph}>Advertise for free. Reach real people. Help other businesses reach you.</Text>
+            <Text style={styles.paragraph}>Join the waitlist and be among the first to use KoboAds.</Text>
+          </View>
+
           <View style={styles.highlightCard}>
             <Text style={styles.highlightTitle}>Why KoboAds?</Text>
             <Text style={styles.highlightText}>• Run local ad campaigns with small budgets and transparent pricing.</Text>
@@ -133,49 +112,6 @@ export default function WaitlistScreen({ route }: Props) {
             <Text style={styles.highlightText}>• Use WhatsApp support to stay connected and receive onboarding updates directly.</Text>
             <Text style={styles.highlightText}>• We keep your waitlist spot, referral chain, and launch invites organized automatically.</Text>
           </View>
-
-          {Platform.OS === 'web' ? (
-            <>
-              <View style={styles.imageStrip}>
-                {images.map((item, index) => (
-                  <TouchableOpacity key={index} style={styles.imageItem} onPress={() => handleOpenPreview(index)}>
-                    <Image source={item.source} style={styles.featureImage} />
-                    {item.shareable ? <Text style={styles.shareBadge}>Tap to preview & share</Text> : null}
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <Text style={styles.imageHint}>Tap the image to preview the full version. Then download it or share your referral link with it.</Text>
-
-              <Modal visible={selectedImage !== null} animationType="fade" transparent onRequestClose={handleClosePreview}>
-                <View style={styles.modalOverlay}>
-                  <TouchableOpacity style={styles.modalBackdrop} onPress={handleClosePreview} />
-                  <View style={styles.modalContent}>
-                    {selectedImage !== null ? (
-                      <>
-                        <Image source={images[selectedImage].source} style={styles.previewImage} />
-                        <Text style={styles.previewLabel}>{images[selectedImage].label}</Text>
-                        <View style={styles.previewActions}>
-                          <TouchableOpacity style={styles.previewButton} onPress={handleDownload}>
-                            <Ionicons name="download-outline" size={18} color={colors.textDark} />
-                            <Text style={styles.previewButtonText}>Download image</Text>
-                          </TouchableOpacity>
-                          {result && images[selectedImage].shareable ? (
-                            <TouchableOpacity style={styles.previewButton} onPress={handleCopy}>
-                              <Ionicons name="link-outline" size={18} color={colors.textDark} />
-                              <Text style={styles.previewButtonText}>Copy referral link</Text>
-                            </TouchableOpacity>
-                          ) : null}
-                        </View>
-                        <TouchableOpacity style={styles.modalClose} onPress={handleClosePreview}>
-                          <Text style={styles.modalCloseText}>Close</Text>
-                        </TouchableOpacity>
-                      </>
-                    ) : null}
-                  </View>
-                </View>
-              </Modal>
-            </>
-          ) : null}
 
           <View style={styles.card}>
             <Input label="Full name" value={name} onChangeText={setName} placeholder="Your name" />
@@ -245,6 +181,7 @@ const styles = StyleSheet.create({
   linkBox: { marginTop: spacing.lg, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.card },
   linkLabel: { color: colors.textMuted, fontSize: fontSize.xs, fontWeight: '700', marginBottom: spacing.sm },
   linkText: { color: colors.textDark, fontSize: fontSize.sm, lineHeight: 20 },
+  linkActions: { flexDirection: 'row', flexWrap: 'wrap' },
   copyBtn: { marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', padding: spacing.sm, borderRadius: radius.md, backgroundColor: colors.primaryLight },
   shareBtn: { marginLeft: spacing.sm },
   copyText: { color: colors.primaryDark, fontWeight: '700', fontSize: fontSize.xs },
@@ -254,21 +191,10 @@ const styles = StyleSheet.create({
   highlightCard: { marginTop: spacing.xs, backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg },
   highlightTitle: { fontSize: fontSize.sm, fontWeight: '800', color: colors.textDark, marginBottom: spacing.sm },
   highlightText: { fontSize: fontSize.sm, color: colors.textMuted, lineHeight: 20, marginTop: spacing.xs },
-  imageStrip: { marginTop: spacing.xs },
-  imageItem: { width: '100%', marginBottom: spacing.xs, borderRadius: radius.lg, overflow: 'hidden' },
-  imageHint: { marginTop: spacing.xs, color: colors.textMuted, fontSize: fontSize.xs, lineHeight: 18 },
-  shareBadge: { position: 'absolute', left: 12, bottom: 12, backgroundColor: 'rgba(255,255,255,0.92)', paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: radius.md, fontSize: fontSize.xs, fontWeight: '700', color: colors.textDark },
-  featureImage: { width: '100%', height: undefined, aspectRatio: 16 / 10, borderRadius: radius.lg, resizeMode: 'contain', backgroundColor: colors.bg },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'center', padding: spacing.lg },
-  modalBackdrop: { ...StyleSheet.absoluteFill },
-  modalContent: { backgroundColor: colors.card, borderRadius: radius.xl, overflow: 'hidden', padding: spacing.lg },
-  previewImage: { width: '100%', aspectRatio: 16 / 10, borderRadius: radius.lg, backgroundColor: colors.bg },
-  previewLabel: { marginTop: spacing.md, color: colors.textDark, fontSize: fontSize.sm, fontWeight: '700' },
-  previewActions: { marginTop: spacing.md, flexDirection: 'row', flexWrap: 'wrap' },
-  previewButton: { flexDirection: 'row', alignItems: 'center', padding: spacing.sm, borderRadius: radius.md, backgroundColor: colors.primaryLight, marginRight: spacing.sm, marginBottom: spacing.sm },
-  previewButtonText: { color: colors.primaryDark, fontSize: fontSize.xs, fontWeight: '700' },
-  modalClose: { marginTop: spacing.md, padding: spacing.sm, alignItems: 'center', borderRadius: radius.md, backgroundColor: colors.bg },
-  modalCloseText: { color: colors.textMuted, fontSize: fontSize.sm, fontWeight: '700' },
+  howItWorksCard: { marginTop: spacing.lg, backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg },
+  sectionTitle: { fontSize: fontSize.lg, fontWeight: '800', color: colors.textDark, marginBottom: spacing.sm },
+  paragraph: { fontSize: fontSize.sm, color: colors.textMuted, lineHeight: 22, marginBottom: spacing.sm },
+  boldText: { fontSize: fontSize.sm, color: colors.textDark, fontWeight: '700' },
   footer: { marginTop: spacing.sm, alignItems: 'center' },
   footerText: { color: colors.textMuted, fontSize: fontSize.sm, textAlign: 'center' },
 });
