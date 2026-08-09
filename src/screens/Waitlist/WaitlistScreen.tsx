@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
   shareBadge: { position: 'absolute', left: 12, bottom: 12, backgroundColor: 'rgba(255,255,255,0.92)', paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: radius.md, fontSize: fontSize.xs, fontWeight: '700', color: colors.textDark },
   featureImage: { width: '100%', height: undefined, aspectRatio: 16 / 10, borderRadius: radius.lg, resizeMode: 'contain', backgroundColor: colors.bg },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'center', padding: spacing.lg },
-  modalBackdrop: { ...StyleSheet.absoluteFillObject },
+  modalBackdrop: { ...StyleSheet.absoluteFill },
   modalContent: { backgroundColor: colors.card, borderRadius: radius.xl, overflow: 'hidden', padding: spacing.lg },
   previewImage: { width: '100%', aspectRatio: 16 / 10, borderRadius: radius.lg, backgroundColor: colors.bg },
   previewLabel: { marginTop: spacing.md, color: colors.textDark, fontSize: fontSize.sm, fontWeight: '700' },
