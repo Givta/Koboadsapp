@@ -3,6 +3,7 @@ import React from 'react';
 import { useApp } from '../context/AppContext';
 import LoginScreen from '../screens/Auth/LoginScreen';
 import RegisterScreen from '../screens/Auth/RegisterScreen';
+import WaitlistScreen from '../screens/Waitlist/WaitlistScreen';
 import CampaignDetailScreen from '../screens/CampaignDetail/CampaignDetailScreen';
 import CreateAdScreen from '../screens/CreateAd/CreateAdScreen';
 import OnboardingScreen from '../screens/Onboarding/OnboardingScreen';
@@ -23,6 +24,7 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Login: undefined;
   Register: { ref?: string } | undefined;
+  Waitlist: { ref?: string } | undefined;
   MainTabs: undefined;
   CreateAd: undefined;
   CampaignDetail: { campaignId: string };
@@ -51,6 +53,7 @@ export default function RootNavigator() {
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
+          <Stack.Screen name="Waitlist" component={WaitlistScreen} />
           <Stack.Screen name="AccountRecovery" component={AccountRecoveryScreen} />
         </Stack.Group>
       ) : (

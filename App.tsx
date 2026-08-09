@@ -1,21 +1,21 @@
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect } from 'react';
 import { Platform } from 'react-native';
-import * as Linking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider, useApp } from './src/context/AppContext';
 import RootNavigator from './src/navigation/RootNavigator';
+import WaitlistScreen from './src/screens/Waitlist/WaitlistScreen';
 import { DEEP_LINK_SCHEME, WEB_HOST } from './src/data/constants';
 import * as notificationService from './src/services/notificationService';
 import { createNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 
 export const navigationRef = createNavigationContainerRef();
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-function Root() {
+function MobileRoot() {
   const { authLoading } = useApp();
 
   // Deep linking prefixes
@@ -25,6 +25,7 @@ function Root() {
     config: {
       screens: {
         Register: 'signup',
+        Waitlist: 'waitlist',
       },
     },
   };
@@ -36,23 +37,9 @@ function Root() {
   }, [authLoading]);
 
   useEffect(() => {
-    // Web PWA: register service worker and manifest link
-    if (Platform.OS === 'web') {
-      try {
-        const link = document.createElement('link');
-        link.rel = 'manifest';
-        link.href = '/manifest.json';
-        document.head.appendChild(link);
-      } catch (e) {
-        // ignore
-      }
-
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/service-worker.js').catch(() => {});
-      }
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/service-worker.js').catch(() => {});
     }
-
-    // Service worker and PWA manifest are handled here; push token registration is bound to authenticated users in AppContext.
   }, []);
 
   if (authLoading) return null;
@@ -66,10 +53,19 @@ function Root() {
 }
 
 export default function App() {
+  if (Platform.OS === 'web') {
+    return (
+      <SafeAreaProvider>
+        <StatusBar style="dark" />
+        <WaitlistScreen route={{ params: { ref: '' } }} />
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <AppProvider>
-        <Root />
+        <MobileRoot />
       </AppProvider>
     </SafeAreaProvider>
   );

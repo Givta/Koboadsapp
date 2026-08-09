@@ -235,6 +235,26 @@ service cloud.firestore {
     }
 
     // ---------------------------------------------------------------------
+    // waitlist/{id}
+    //   Written by the public waitlist signup page. No auth required.
+    // ---------------------------------------------------------------------
+    match /waitlist/{id} {
+      allow create: if incomingData().name is string
+        && incomingData().email is string
+        && incomingData().whatsappNumber is string
+        && incomingData().whatsappNumber.matches('^\\+234[0-9]+$')
+        && incomingData().referralCode is string
+        && (incomingData().referredByCode is string || incomingData().referredByCode == null)
+        && (incomingData().referredById is string || incomingData().referredById == null)
+        && (incomingData().referredByType in ['user', 'waitlist'] || incomingData().referredByType == null)
+        && (incomingData().referredByName is string || incomingData().referredByName == null)
+        && incomingData().status == 'joined'
+        && incomingData().createdAt == request.time;
+      allow read: if false;
+      allow update, delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
     // Reference/config data — populated by scripts/seedFirestore.js via the
     // Admin SDK (which bypasses these rules entirely). Public read since it's
     // non-sensitive and the app needs it before sign-in on some screens.
