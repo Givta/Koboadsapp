@@ -62,8 +62,9 @@ export default function WaitlistScreen({ route }: Props) {
       setError('Please enter your name, email, and WhatsApp number.');
       return;
     }
-    if (!trimmedWhatsapp.startsWith('+234')) {
-      setError('WhatsApp number must start with +234.');
+    const whatsappPattern = /^\+\d{7,15}$/;
+    if (!whatsappPattern.test(trimmedWhatsapp)) {
+      setError('WhatsApp number must start with + and include the country code.');
       return;
     }
     setError(null);

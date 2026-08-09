@@ -54,10 +54,16 @@ function MobileRoot() {
 
 export default function App() {
   if (Platform.OS === 'web') {
+    let refCode = '';
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      refCode = params.get('ref')?.toUpperCase() ?? '';
+    }
+
     return (
       <SafeAreaProvider>
         <StatusBar style="dark" />
-        <WaitlistScreen route={{ params: { ref: '' } }} />
+        <WaitlistScreen route={{ params: { ref: refCode } }} />
       </SafeAreaProvider>
     );
   }
