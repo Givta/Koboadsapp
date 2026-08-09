@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import Button from '../../components/Button';
@@ -50,6 +50,19 @@ export default function WaitlistScreen({ route }: Props) {
     if (inviteLink) {
       await Clipboard.setStringAsync(inviteLink);
       Alert.alert('Copied', 'Your invite link is now on the clipboard.');
+    }
+  };
+
+  const handleShare = async () => {
+    if (!inviteLink) return;
+
+    try {
+      await Share.share({
+        message: `Join KoboAds and get early access! Use my referral link to join the waitlist:\n\n${inviteLink}\n\nI just joined the KoboAds waitlist — it helps small businesses run ads and earn rewards.
+      `,
+      });
+    } catch {
+      Alert.alert('Share', 'Unable to open share options on this device.');
     }
   };
 
@@ -121,44 +134,48 @@ export default function WaitlistScreen({ route }: Props) {
             <Text style={styles.highlightText}>• We keep your waitlist spot, referral chain, and launch invites organized automatically.</Text>
           </View>
 
-          <View style={styles.imageStrip}>
-            {images.map((item, index) => (
-              <TouchableOpacity key={index} style={styles.imageItem} onPress={() => handleOpenPreview(index)}>
-                <Image source={item.source} style={styles.featureImage} />
-                {item.shareable ? <Text style={styles.shareBadge}>Tap to preview & share</Text> : null}
-              </TouchableOpacity>
-            ))}
-          </View>
-          <Text style={styles.imageHint}>Tap the image to preview the full version. Then download it or share your referral link with it.</Text>
-
-          <Modal visible={selectedImage !== null} animationType="fade" transparent onRequestClose={handleClosePreview}>
-            <View style={styles.modalOverlay}>
-              <TouchableOpacity style={styles.modalBackdrop} onPress={handleClosePreview} />
-              <View style={styles.modalContent}>
-                {selectedImage !== null ? (
-                  <>
-                    <Image source={images[selectedImage].source} style={styles.previewImage} />
-                    <Text style={styles.previewLabel}>{images[selectedImage].label}</Text>
-                    <View style={styles.previewActions}>
-                      <TouchableOpacity style={styles.previewButton} onPress={handleDownload}>
-                        <Ionicons name="download-outline" size={18} color={colors.textDark} />
-                        <Text style={styles.previewButtonText}>Download image</Text>
-                      </TouchableOpacity>
-                      {result && images[selectedImage].shareable ? (
-                        <TouchableOpacity style={styles.previewButton} onPress={handleCopy}>
-                          <Ionicons name="link-outline" size={18} color={colors.textDark} />
-                          <Text style={styles.previewButtonText}>Copy referral link</Text>
-                        </TouchableOpacity>
-                      ) : null}
-                    </View>
-                    <TouchableOpacity style={styles.modalClose} onPress={handleClosePreview}>
-                      <Text style={styles.modalCloseText}>Close</Text>
-                    </TouchableOpacity>
-                  </>
-                ) : null}
+          {Platform.OS === 'web' ? (
+            <>
+              <View style={styles.imageStrip}>
+                {images.map((item, index) => (
+                  <TouchableOpacity key={index} style={styles.imageItem} onPress={() => handleOpenPreview(index)}>
+                    <Image source={item.source} style={styles.featureImage} />
+                    {item.shareable ? <Text style={styles.shareBadge}>Tap to preview & share</Text> : null}
+                  </TouchableOpacity>
+                ))}
               </View>
-            </View>
-          </Modal>
+              <Text style={styles.imageHint}>Tap the image to preview the full version. Then download it or share your referral link with it.</Text>
+
+              <Modal visible={selectedImage !== null} animationType="fade" transparent onRequestClose={handleClosePreview}>
+                <View style={styles.modalOverlay}>
+                  <TouchableOpacity style={styles.modalBackdrop} onPress={handleClosePreview} />
+                  <View style={styles.modalContent}>
+                    {selectedImage !== null ? (
+                      <>
+                        <Image source={images[selectedImage].source} style={styles.previewImage} />
+                        <Text style={styles.previewLabel}>{images[selectedImage].label}</Text>
+                        <View style={styles.previewActions}>
+                          <TouchableOpacity style={styles.previewButton} onPress={handleDownload}>
+                            <Ionicons name="download-outline" size={18} color={colors.textDark} />
+                            <Text style={styles.previewButtonText}>Download image</Text>
+                          </TouchableOpacity>
+                          {result && images[selectedImage].shareable ? (
+                            <TouchableOpacity style={styles.previewButton} onPress={handleCopy}>
+                              <Ionicons name="link-outline" size={18} color={colors.textDark} />
+                              <Text style={styles.previewButtonText}>Copy referral link</Text>
+                            </TouchableOpacity>
+                          ) : null}
+                        </View>
+                        <TouchableOpacity style={styles.modalClose} onPress={handleClosePreview}>
+                          <Text style={styles.modalCloseText}>Close</Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : null}
+                  </View>
+                </View>
+              </Modal>
+            </>
+          ) : null}
 
           <View style={styles.card}>
             <Input label="Full name" value={name} onChangeText={setName} placeholder="Your name" />
@@ -180,10 +197,16 @@ export default function WaitlistScreen({ route }: Props) {
               <View style={styles.linkBox}>
                 <Text style={styles.linkLabel}>Your invite link</Text>
                 <Text style={styles.linkText}>{result.joinLink}</Text>
-                <TouchableOpacity style={styles.copyBtn} onPress={handleCopy}>
-                  <Ionicons name="copy-outline" size={18} color={colors.primary} />
-                  <Text style={styles.copyText}>Copy link</Text>
-                </TouchableOpacity>
+                <View style={styles.linkActions}>
+                  <TouchableOpacity style={styles.copyBtn} onPress={handleCopy}>
+                    <Ionicons name="copy-outline" size={18} color={colors.primary} />
+                    <Text style={styles.copyText}>Copy link</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.copyBtn, styles.shareBtn]} onPress={handleShare}>
+                    <Ionicons name="share-outline" size={18} color={colors.primary} />
+                    <Text style={styles.copyText}>Share</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           ) : (
@@ -208,12 +231,12 @@ export default function WaitlistScreen({ route }: Props) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: spacing.xl, paddingBottom: spacing.xxxl },
+  content: { padding: Platform.OS === 'web' ? spacing.md : spacing.sm, paddingBottom: spacing.xxxl },
   title: { fontSize: fontSize.xxxl, fontWeight: '800', color: colors.textDark },
   subtitle: { color: colors.textMuted, fontSize: fontSize.md, marginTop: spacing.sm, lineHeight: 22 },
-  card: { marginTop: spacing.md, backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg },
+  card: { marginTop: spacing.sm, backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg },
   errorText: { color: colors.danger, marginTop: spacing.sm, fontWeight: '700' },
-  resultCard: { marginTop: spacing.lg, backgroundColor: colors.bgDark, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: colors.border },
+  resultCard: { marginTop: spacing.sm, backgroundColor: colors.bgDark, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: colors.border },
   resultTitle: { color: '#fff', fontSize: fontSize.lg, fontWeight: '800' },
   resultText: { color: colors.textOnDarkMuted, marginTop: spacing.sm, fontSize: fontSize.sm, lineHeight: 20 },
   codeBox: { marginTop: spacing.lg, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.card },
@@ -223,15 +246,16 @@ const styles = StyleSheet.create({
   linkLabel: { color: colors.textMuted, fontSize: fontSize.xs, fontWeight: '700', marginBottom: spacing.sm },
   linkText: { color: colors.textDark, fontSize: fontSize.sm, lineHeight: 20 },
   copyBtn: { marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', padding: spacing.sm, borderRadius: radius.md, backgroundColor: colors.primaryLight },
+  shareBtn: { marginLeft: spacing.sm },
   copyText: { color: colors.primaryDark, fontWeight: '700', fontSize: fontSize.xs },
-  hintCard: { marginTop: spacing.lg, backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg },
+  hintCard: { marginTop: Platform.OS === 'web' ? spacing.md : spacing.sm, backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg },
   hintTitle: { fontSize: fontSize.sm, fontWeight: '800', color: colors.textDark },
   hintText: { marginTop: spacing.sm, fontSize: fontSize.sm, color: colors.textMuted, lineHeight: 20 },
-  highlightCard: { marginTop: spacing.lg, backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg },
+  highlightCard: { marginTop: spacing.xs, backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg },
   highlightTitle: { fontSize: fontSize.sm, fontWeight: '800', color: colors.textDark, marginBottom: spacing.sm },
   highlightText: { fontSize: fontSize.sm, color: colors.textMuted, lineHeight: 20, marginTop: spacing.xs },
-  imageStrip: { marginTop: spacing.md },
-  imageItem: { width: '100%', marginBottom: spacing.sm, borderRadius: radius.lg, overflow: 'hidden' },
+  imageStrip: { marginTop: spacing.xs },
+  imageItem: { width: '100%', marginBottom: spacing.xs, borderRadius: radius.lg, overflow: 'hidden' },
   imageHint: { marginTop: spacing.xs, color: colors.textMuted, fontSize: fontSize.xs, lineHeight: 18 },
   shareBadge: { position: 'absolute', left: 12, bottom: 12, backgroundColor: 'rgba(255,255,255,0.92)', paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: radius.md, fontSize: fontSize.xs, fontWeight: '700', color: colors.textDark },
   featureImage: { width: '100%', height: undefined, aspectRatio: 16 / 10, borderRadius: radius.lg, resizeMode: 'contain', backgroundColor: colors.bg },
@@ -245,6 +269,6 @@ const styles = StyleSheet.create({
   previewButtonText: { color: colors.primaryDark, fontSize: fontSize.xs, fontWeight: '700' },
   modalClose: { marginTop: spacing.md, padding: spacing.sm, alignItems: 'center', borderRadius: radius.md, backgroundColor: colors.bg },
   modalCloseText: { color: colors.textMuted, fontSize: fontSize.sm, fontWeight: '700' },
-  footer: { marginTop: spacing.lg, alignItems: 'center' },
+  footer: { marginTop: spacing.sm, alignItems: 'center' },
   footerText: { color: colors.textMuted, fontSize: fontSize.sm, textAlign: 'center' },
 });

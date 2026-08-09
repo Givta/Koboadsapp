@@ -249,7 +249,7 @@ service cloud.firestore {
         && (incomingData().referredByType in ['user', 'waitlist'] || incomingData().referredByType == null)
         && (incomingData().referredByName is string || incomingData().referredByName == null)
         && incomingData().status == 'joined'
-        && incomingData().createdAt == request.time;
+        && incomingData().createdAt is timestamp;
       allow read: if false;
       allow update, delete: if false;
     }

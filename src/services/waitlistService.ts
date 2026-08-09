@@ -49,6 +49,7 @@ export interface WaitlistEntryResult {
 
 export async function createWaitlistEntry({ name, email, referralCode, whatsappNumber }: WaitlistEntryInput): Promise<WaitlistEntryResult> {
   const normalizedReferralCode = referralCode?.trim().toUpperCase();
+  const normalizedWhatsappNumber = whatsappNumber.trim().replace(/\s+/g, '');
 
   let referrerId: string | null = null;
   let referrerType: 'user' | 'waitlist' | null = null;
@@ -70,7 +71,7 @@ export async function createWaitlistEntry({ name, email, referralCode, whatsappN
   await setDoc(entryRef, {
     name,
     email: email.trim(),
-    whatsappNumber: whatsappNumber.trim(),
+    whatsappNumber: normalizedWhatsappNumber,
     referralCode: generatedReferralCode,
     referredByCode: normalizedReferralCode || null,
     referredById: referrerId || null,

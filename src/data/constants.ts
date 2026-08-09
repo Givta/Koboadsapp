@@ -12,6 +12,6 @@ export const DAILY_AD_LIMIT = 2;
 export const DAILY_EARN_LIMIT = 10;
 
 // App host (used for referral web links). Change to your production domain.
-export const WEB_HOST = 'https://koboads.app';
+export const WEB_HOST = 'https://koboads.vercel.app';
 // Deep link scheme for mobile apps.
 export const DEEP_LINK_SCHEME = 'koboads://';
