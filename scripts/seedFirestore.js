@@ -50,6 +50,10 @@ const AGE_RANGES = ['18-24', '25-34', '35-44', '45-54', '55+', 'All ages'];
 
 const APP_CONFIG = {
   reachLevels: [500, 1000, 2500, 5000, 10000],
+  exchangeReachLevels: [200, 500, 1000],
+  boostReachSteps: [200, 500, 1000, 2000, 5000],
+  freeCampaignMaxReach: 1000,
+  dailyFreeCampaignLimit: 2,
   costPerReachNaira: 0.8,
   rewardPerAdNaira: 40,
   dailyAdLimit: 2,

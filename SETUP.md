@@ -112,24 +112,51 @@ del package-lock.json
 npm install
 ```
 
+## Wallet top-up payment gateway (Flutterwave)
+
+Wallet top-up is real: `initializeTopUpPayment` creates a Flutterwave checkout
+session, the person pays in their browser, and `verifyTopUpPayment` re-verifies
+the transaction directly against Flutterwave's API (never trusts the client's
+word that payment succeeded) before crediting the wallet.
+
+To activate it:
+
+1. Get your **live** (or test, while developing) secret key from the
+   Flutterwave dashboard → Settings → API Keys.
+2. Create `functions/.env` (gitignored) with:
+   ```
+   FLUTTERWAVE_SECRET_KEY=FLWSECK-xxxxxxxxxxxx
+   FLUTTERWAVE_REDIRECT_URL=https://yourdomain.com/payment-complete
+   ```
+3. Redeploy functions: `firebase deploy --only functions`.
+
+Until `FLUTTERWAVE_SECRET_KEY` is set, `initializeTopUpPayment` fails with a
+clear "Payment gateway is not configured" error and the Wallet screen tells
+the person top-up is temporarily unavailable — it does **not** fall back to
+crediting their wallet for free. (An earlier version of this flow did have
+exactly that fallback, reachable by any signed-in user with no payment
+required — that's now admin-only, see the comment on `topUpWallet` in
+`functions/src/index.ts`.)
+
+`FLUTTERWAVE_REDIRECT_URL` should point at a page in your web build that
+tells the person to switch back to the app — Flutterwave redirects the
+browser there after payment, but the actual wallet credit happens when the
+app calls `verifyTopUpPayment`, not from that redirect itself.
+
 ## What's real vs. what still needs a decision
 
 - **Auth, campaigns, wallet, earnings, referrals, ad distribution, media upload,
-  targeting/budget config** — all live Firestore reads/writes or real HTTP uploads,
-  no mock data anywhere.
-- **Ad distribution engine** (`src/services/adEngine.ts`) runs client-side right
-  after a campaign is created — queries eligible opted-in users, enforces the
-  2-ads/day cap, avoids repeat delivery. Functional at small scale. For production
-  scale/security, move this into a Cloud Function triggered on campaign creation.
-- **Wallet top-up** currently credits the wallet directly (a real, persisted
-  Firestore transaction) — no payment gateway wired up yet. Give me Paystack or
-  Flutterwave keys when ready and I'll wire the top-up flow to their SDK instead.
-- **Withdrawals** are recorded as `pending` — no payout automation, so pending
-  withdrawals need a manual/admin process for now.
+  targeting/budget config, notifications** — all live Firestore reads/writes,
+  Cloud Functions, or real HTTP calls. No mock data anywhere.
+- **Wallet top-up** goes through Flutterwave (see above) once configured — a
+  real, server-verified payment, not a direct credit.
+- **Withdrawals** are recorded as `pending` — no payout automation (no bank
+  transfer API connected), so pending withdrawals need a manual/admin process
+  for now. `withdrawFunds` uses a Firestore transaction so concurrent
+  withdrawal requests can't race each other into an overdraft.
 - **Media uploads** go to your cPanel hosting via `cpanel/upload.php`, protected by
   a shared-secret token. Fine for now; a stolen token lets someone upload files to
   that one folder, so rotate it if you ever suspect it's leaked.
-- **Security rules** lock down reads/writes to each user's own data, but wallet/
-  earnings fields are still writable by the signed-in client via `runTransaction`
-  calls (see the comments in `firestore.rules`). Moving those into Cloud Functions
-  with the Admin SDK is the right next step before this handles real money at scale.
+- **Security rules** are server-authoritative for money: `walletBalance` and
+  `earningsBalance` are Cloud-Function-only fields (Admin SDK bypasses rules),
+  the client has no direct write path to them at all anymore.

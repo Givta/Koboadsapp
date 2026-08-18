@@ -1,16 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React from 'react';
 import { Alert, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import EmptyState from '../../components/EmptyState';
 import ProgressBar from '../../components/ProgressBar';
 import { useApp } from '../../context/AppContext';
+import { RootStackParamList } from '../../navigation/RootNavigator';
 import { colors } from '../../theme/colors';
 import { fontSize, radius, spacing } from '../../theme/spacing';
 import { AvailableAd } from '../../types';
 
 export default function EarnScreen() {
-  const { earningsBalance, availableAds, adsViewedToday, adsViewLimit, watchAd } = useApp();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { earningsBalance, availableAds, adsViewedToday, adsViewLimit } = useApp();
   const limitReached = adsViewedToday >= adsViewLimit;
 
   const handleWatch = (ad: AvailableAd) => {
@@ -18,10 +22,7 @@ export default function EarnScreen() {
       Alert.alert('Daily limit reached', "You've viewed your 10 ads for today. Come back tomorrow.");
       return;
     }
-    Alert.alert(ad.title, `Watching this ad earns you ₦${ad.reward}.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Watch now', onPress: () => watchAd(ad.id) },
-    ]);
+    navigation.navigate('AdViewer', { ad });
   };
 
   return (
@@ -42,7 +43,7 @@ export default function EarnScreen() {
                   <Text style={styles.earnLabel}>Available to Earn</Text>
                   <Text style={styles.earnValue}>₦{earningsBalance.toLocaleString()}.00</Text>
                 </View>
-                <TouchableOpacity style={styles.payoutBtn}>
+                <TouchableOpacity style={styles.payoutBtn} onPress={() => navigation.navigate('WithdrawalHistory')}>
                   <Text style={styles.payoutText}>Payout</Text>
                 </TouchableOpacity>
               </View>

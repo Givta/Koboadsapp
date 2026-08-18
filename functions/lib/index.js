@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cleanupExpiredDeliveries = exports.watchAd = exports.withdrawFunds = exports.topUpWallet = exports.resolveAbuseReport = exports.reportAbuse = exports.rejectCampaign = exports.rejectMedia = exports.getDashboardMetrics = exports.approveMedia = exports.approveCampaign = exports.createCampaign = void 0;
+exports.cleanupExpiredDeliveries = exports.watchAd = exports.withdrawFunds = exports.topUpWallet = exports.resolveAbuseReport = exports.reportAbuse = exports.rejectCampaign = exports.rejectMedia = exports.getDashboardMetrics = exports.approveMedia = exports.approveCampaign = exports.createCampaign = exports.verifyTopUpPayment = exports.initializeTopUpPayment = void 0;
 const app_1 = require("firebase-admin/app");
 const firestore_1 = require("firebase-admin/firestore");
 const functions = __importStar(require("firebase-functions/v2"));
@@ -112,6 +112,147 @@ async function sendPushNotificationToUser(userId, message) {
     const tokens = Array.isArray(userData.pushTokens) ? userData.pushTokens : [];
     await sendExpoPushNotifications(tokens, message);
 }
+const FLUTTERWAVE_SECRET_KEY = process.env.FLUTTERWAVE_SECRET_KEY;
+const FLUTTERWAVE_REDIRECT_URL = process.env.FLUTTERWAVE_REDIRECT_URL || 'https://koboads.com/payment-complete';
+async function initializeFlutterwavePayment(amount, email, name, reference) {
+    if (!FLUTTERWAVE_SECRET_KEY) {
+        throw new Error('Flutterwave secret key is not configured.');
+    }
+    const response = await fetch('https://api.flutterwave.com/v3/payments', {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${FLUTTERWAVE_SECRET_KEY}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            tx_ref: reference,
+            amount: amount.toFixed(2),
+            currency: 'NGN',
+            redirect_url: FLUTTERWAVE_REDIRECT_URL,
+            customer: {
+                email,
+                phonenumber: '',
+                name,
+            },
+            customizations: {
+                title: 'KoboAds Wallet Top Up',
+                description: 'Add money to your KoboAds wallet',
+            },
+            meta: {
+                payment_type: 'wallet_topup',
+            },
+        }),
+    });
+    const json = await response.json();
+    if (!response.ok || !json?.status || !json?.data?.link) {
+        throw new Error(json?.message || 'Could not initialize payment.');
+    }
+    return { authorizationUrl: json.data.link, reference };
+}
+exports.initializeTopUpPayment = functions.https.onCall(async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) {
+        throw new functions.https.HttpsError('unauthenticated', 'You must be signed in.');
+    }
+    const amount = Number(request.data.amount || 0);
+    if (amount <= 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'Amount must be greater than zero.');
+    }
+    if (!FLUTTERWAVE_SECRET_KEY) {
+        throw new functions.https.HttpsError('failed-precondition', 'Payment gateway is not configured.');
+    }
+    const userRef = db.collection('users').doc(uid);
+    const userSnap = await userRef.get();
+    if (!userSnap.exists) {
+        throw new functions.https.HttpsError('not-found', 'User not found.');
+    }
+    const userData = userSnap.data() || {};
+    const email = String(userData.email || '');
+    const name = String(userData.name || 'KoboAds User');
+    if (!email) {
+        throw new functions.https.HttpsError('failed-precondition', 'User email is required to initialize payment.');
+    }
+    const reference = `topup_${uid}_${Date.now()}`;
+    try {
+        const result = await initializeFlutterwavePayment(amount, email, name, reference);
+        await db.collection('paymentRecords').doc(reference).set({
+            userId: uid,
+            amount,
+            status: 'initialized',
+            gateway: 'flutterwave',
+            reference,
+            redirectUrl: FLUTTERWAVE_REDIRECT_URL,
+            createdAt: firestore_1.FieldValue.serverTimestamp(),
+        });
+        return { authorizationUrl: result.authorizationUrl, reference: result.reference };
+    }
+    catch (error) {
+        await logError(error, { fn: 'initializeTopUpPayment', uid, amount });
+        throw new functions.https.HttpsError('internal', 'Could not initialize top up payment.');
+    }
+});
+exports.verifyTopUpPayment = functions.https.onCall(async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) {
+        throw new functions.https.HttpsError('unauthenticated', 'You must be signed in.');
+    }
+    const reference = String(request.data.reference || '').trim();
+    if (!reference) {
+        throw new functions.https.HttpsError('invalid-argument', 'Payment reference is required.');
+    }
+    if (!FLUTTERWAVE_SECRET_KEY) {
+        throw new functions.https.HttpsError('failed-precondition', 'Payment gateway is not configured.');
+    }
+    const paymentRef = db.collection('paymentRecords').doc(reference);
+    const paymentSnap = await paymentRef.get();
+    const paymentData = paymentSnap.data() || {};
+    if (paymentData.status === 'success') {
+        return { success: true };
+    }
+    const response = await fetch(`https://api.flutterwave.com/v3/transactions/verify_by_txref?tx_ref=${encodeURIComponent(reference)}`, {
+        method: 'GET',
+        headers: {
+            Authorization: `Bearer ${FLUTTERWAVE_SECRET_KEY}`,
+            Accept: 'application/json',
+        },
+    });
+    const json = await response.json();
+    if (!response.ok || !json?.status) {
+        await paymentRef.set({ status: 'failed', verifiedAt: firestore_1.FieldValue.serverTimestamp(), response: json }, { merge: true });
+        throw new functions.https.HttpsError('failed-precondition', json?.message || 'Payment verification failed.');
+    }
+    const data = json.data;
+    if (data.status !== 'successful') {
+        await paymentRef.set({ status: data.status, verifiedAt: firestore_1.FieldValue.serverTimestamp(), response: data }, { merge: true });
+        throw new functions.https.HttpsError('failed-precondition', 'Payment is not complete.');
+    }
+    const amountNaira = Number(data.amount);
+    const userRef = db.collection('users').doc(uid);
+    const txRef = db.collection('transactions').doc();
+    const batch = db.batch();
+    batch.set(paymentRef, {
+        userId: uid,
+        amount: amountNaira,
+        status: 'success',
+        gateway: 'flutterwave',
+        reference,
+        verifiedAt: firestore_1.FieldValue.serverTimestamp(),
+        flutterwaveResponse: data,
+    }, { merge: true });
+    batch.update(userRef, { walletBalance: firestore_1.FieldValue.increment(amountNaira) });
+    batch.set(txRef, {
+        userId: uid,
+        type: 'topup',
+        title: 'Wallet top up',
+        amount: amountNaira,
+        status: 'success',
+        paymentReference: reference,
+        gateway: 'flutterwave',
+        createdAt: firestore_1.FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
+    return { success: true };
+});
 const REFERRAL_REWARD_NAIRA = 500;
 // Number of ad views by the referred user required to activate the referral reward.
 const REFERRAL_TRIGGER_VIEWS = 4;

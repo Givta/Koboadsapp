@@ -7,6 +7,11 @@ export interface User {
   email: string;
   phone: string;
   location: string;
+  state?: string;
+  gender?: string;
+  ageRange?: string;
+  businessCategory?: string;
+  profileCompleted: boolean;
   businessName?: string;
   accountType: AccountType;
   role: UserRole;
@@ -18,6 +23,21 @@ export interface User {
   referralCode: string;
   referrerId?: string;
   adCredits?: number;
+  notificationPrefs: {
+    push: boolean;
+    email: boolean;
+    marketing: boolean;
+  };
+}
+
+export interface AppNotification {
+  id: string;
+  type: 'ad_delivered' | 'campaign_approved' | 'campaign_rejected' | 'campaign_boosted' | 'referral_reward';
+  title: string;
+  body: string;
+  data: Record<string, string>;
+  read: boolean;
+  createdAt: string;
 }
 
 export type CampaignStatus = 'active' | 'paused' | 'completed' | 'draft' | 'pending_approval' | 'rejected';
@@ -59,6 +79,7 @@ export interface Campaign {
   category: string;
   location: string;
   ageRange?: string;
+  gender?: string;
   businessName?: string;
   websiteLink?: string;
   contact?: string;
@@ -76,6 +97,7 @@ export interface Campaign {
   mediaType?: 'image' | 'video';
   mediaStoragePath?: string;
   mediaThumbnailUrl?: string;
+  rejectionReason?: string | null;
 }
 
 export interface AvailableAd {
@@ -90,6 +112,11 @@ export interface AvailableAd {
   advertiser: string;
   mediaUrl?: string;
   mediaType?: 'image' | 'video';
+  websiteLink?: string;
+  contact?: string;
+  callToAction?: string;
+  status?: 'delivered' | 'opened' | 'clicked';
+  deliveredAt?: string;
 }
 
 export interface Transaction {
@@ -131,6 +158,7 @@ export interface NewAdDraft {
   mediaStoragePath?: string;
   location: string;
   ageRange: string;
+  gender: string;
   category: string;
   reach: number;
   campaignType: AccountType;

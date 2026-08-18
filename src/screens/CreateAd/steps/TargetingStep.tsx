@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { GENDERS } from '../../../data/constants';
 import { colors } from '../../../theme/colors';
 import { fontSize, radius, spacing } from '../../../theme/spacing';
 import { NewAdDraft } from '../../../types';
@@ -50,10 +51,18 @@ export default function TargetingStep({
         ))}
       </View>
 
+      <Text style={styles.label}>Gender</Text>
+      <View style={styles.chipsWrap}>
+        {GENDERS.map((g) => (
+          <Chip key={g} label={g} active={draft.gender === g} onPress={() => onChange({ gender: g })} />
+        ))}
+      </View>
+
       <View style={styles.summaryCard}>
         <Text style={styles.summaryTitle}>Targeting summary</Text>
         <Text style={styles.summaryText}>
-          {draft.location || 'Any location'} · {draft.category || 'Any category'} · {draft.ageRange || 'All ages'}
+          {draft.location || 'Any location'} · {draft.category || 'Any category'} · {draft.ageRange || 'All ages'} ·{' '}
+          {draft.gender && draft.gender !== 'All' ? draft.gender : 'All genders'}
         </Text>
       </View>
     </View>

@@ -5,7 +5,11 @@ import {
   CATEGORIES as DEFAULT_CATEGORIES,
   COST_PER_REACH_NAIRA as DEFAULT_COST_PER_REACH,
   LOCATIONS as DEFAULT_LOCATIONS,
-  REACH_LEVELS as DEFAULT_REACH_LEVELS,
+  PAID_REACH_LEVELS as DEFAULT_PAID_REACH_LEVELS,
+  EXCHANGE_REACH_LEVELS as DEFAULT_EXCHANGE_REACH_LEVELS,
+  BOOST_REACH_STEPS as DEFAULT_BOOST_REACH_STEPS,
+  FREE_CAMPAIGN_MAX_REACH as DEFAULT_FREE_CAMPAIGN_MAX_REACH,
+  DAILY_FREE_CAMPAIGN_LIMIT as DEFAULT_DAILY_FREE_CAMPAIGN_LIMIT,
   REWARD_PER_AD_NAIRA as DEFAULT_REWARD_PER_AD,
 } from '../data/constants';
 
@@ -14,6 +18,10 @@ export interface AppConfigState {
   locations: string[];
   ageRanges: string[];
   reachLevels: number[];
+  exchangeReachLevels: number[];
+  boostReachSteps: number[];
+  freeCampaignMaxReach: number;
+  dailyFreeCampaignLimit: number;
   costPerReachNaira: number;
   rewardPerAdNaira: number;
 }
@@ -22,7 +30,11 @@ const DEFAULTS: AppConfigState = {
   categories: DEFAULT_CATEGORIES,
   locations: DEFAULT_LOCATIONS,
   ageRanges: DEFAULT_AGE_RANGES,
-  reachLevels: DEFAULT_REACH_LEVELS,
+  reachLevels: DEFAULT_PAID_REACH_LEVELS,
+  exchangeReachLevels: DEFAULT_EXCHANGE_REACH_LEVELS,
+  boostReachSteps: DEFAULT_BOOST_REACH_STEPS,
+  freeCampaignMaxReach: DEFAULT_FREE_CAMPAIGN_MAX_REACH,
+  dailyFreeCampaignLimit: DEFAULT_DAILY_FREE_CAMPAIGN_LIMIT,
   costPerReachNaira: DEFAULT_COST_PER_REACH,
   rewardPerAdNaira: DEFAULT_REWARD_PER_AD,
 };
@@ -75,10 +87,22 @@ export function listenAppConfig(cb: (config: AppConfigState) => void) {
     if (snap.exists()) {
       const data = snap.data();
       state.reachLevels = Array.isArray(data.reachLevels) && data.reachLevels.length ? data.reachLevels : DEFAULTS.reachLevels;
+      state.exchangeReachLevels = Array.isArray(data.exchangeReachLevels) && data.exchangeReachLevels.length
+        ? data.exchangeReachLevels
+        : DEFAULTS.exchangeReachLevels;
+      state.boostReachSteps = Array.isArray(data.boostReachSteps) && data.boostReachSteps.length
+        ? data.boostReachSteps
+        : DEFAULTS.boostReachSteps;
+      state.freeCampaignMaxReach = typeof data.freeCampaignMaxReach === 'number' ? data.freeCampaignMaxReach : DEFAULTS.freeCampaignMaxReach;
+      state.dailyFreeCampaignLimit = typeof data.dailyFreeCampaignLimit === 'number' ? data.dailyFreeCampaignLimit : DEFAULTS.dailyFreeCampaignLimit;
       state.costPerReachNaira = typeof data.costPerReachNaira === 'number' ? data.costPerReachNaira : DEFAULTS.costPerReachNaira;
       state.rewardPerAdNaira = typeof data.rewardPerAdNaira === 'number' ? data.rewardPerAdNaira : DEFAULTS.rewardPerAdNaira;
     } else {
       state.reachLevels = DEFAULTS.reachLevels;
+      state.exchangeReachLevels = DEFAULTS.exchangeReachLevels;
+      state.boostReachSteps = DEFAULTS.boostReachSteps;
+      state.freeCampaignMaxReach = DEFAULTS.freeCampaignMaxReach;
+      state.dailyFreeCampaignLimit = DEFAULTS.dailyFreeCampaignLimit;
       state.costPerReachNaira = DEFAULTS.costPerReachNaira;
       state.rewardPerAdNaira = DEFAULTS.rewardPerAdNaira;
     }

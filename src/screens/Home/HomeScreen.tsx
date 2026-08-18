@@ -14,8 +14,9 @@ import { fontSize, radius, spacing } from '../../theme/spacing';
 
 export default function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { user, walletBalance, earningsBalance, campaigns, totalAdsViewed } = useApp();
+  const { user, walletBalance, earningsBalance, campaigns, totalAdsViewed, notifications } = useApp();
   const recent = campaigns.slice(0, 2);
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -25,8 +26,13 @@ export default function HomeScreen() {
             <Text style={styles.greetingSmall}>Hello,</Text>
             <Text style={styles.greeting}>{user.name.split(' ')[0]} 👋</Text>
           </View>
-          <TouchableOpacity style={styles.bellBtn}>
+          <TouchableOpacity style={styles.bellBtn} onPress={() => navigation.navigate('Notifications')}>
             <Ionicons name="notifications-outline" size={20} color={colors.textDark} />
+            {unreadCount > 0 && (
+              <View style={styles.bellDot}>
+                <Text style={styles.bellDotText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -54,7 +60,7 @@ export default function HomeScreen() {
             label="My Ads"
             color={colors.info}
             bg={colors.infoBg}
-            onPress={() => navigation.navigate('MainTabs' as never)}
+            onPress={() => navigation.navigate('Ads' as never)}
           />
           <QuickAction icon="wallet-outline" label="Top Up" color={colors.gold} bg="#FDF3E3" onPress={() => navigation.navigate('Wallet')} />
           <QuickAction
@@ -68,7 +74,7 @@ export default function HomeScreen() {
 
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Recent Campaigns</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('MainTabs' as never)}>
+          <TouchableOpacity onPress={() => navigation.navigate('Ads' as never)}>
             <Text style={styles.viewAll}>View all</Text>
           </TouchableOpacity>
         </View>

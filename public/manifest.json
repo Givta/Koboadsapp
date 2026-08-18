@@ -1,0 +1,26 @@
+{
+  "name": "KoboAds",
+  "short_name": "KoboAds",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B1B14",
+  "theme_color": "#0B1B14",
+  "description": "Affordable, permission-based advertising — reach more, spend less.",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

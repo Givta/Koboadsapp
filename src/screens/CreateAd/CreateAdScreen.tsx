@@ -29,13 +29,14 @@ const INITIAL_DRAFT: NewAdDraft = {
   imageColor: '#F59E0B',
   location: '',
   ageRange: '',
+  gender: 'All',
   category: '',
   reach: 1000,
   campaignType: 'exchange',
 };
 
 export default function CreateAdScreen({ navigation }: Props) {
-  const { createCampaign, appConfig } = useApp();
+  const { createCampaign, appConfig, walletBalance, campaigns } = useApp();
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<NewAdDraft>(INITIAL_DRAFT);
   const [launching, setLaunching] = useState(false);
@@ -52,6 +53,16 @@ export default function CreateAdScreen({ navigation }: Props) {
       setStep((s) => s + 1);
       return;
     }
+
+    const estimatedCost = draft.campaignType === 'paid' ? Math.round(draft.reach * appConfig.costPerReachNaira) : 0;
+    if (draft.campaignType === 'paid' && estimatedCost > walletBalance) {
+      Alert.alert(
+        'Insufficient balance',
+        'Your wallet balance is too low for this paid campaign. Please top up your wallet before launching.'
+      );
+      return;
+    }
+
     setLaunching(true);
     try {
       await createCampaign(draft);
@@ -101,10 +112,23 @@ export default function CreateAdScreen({ navigation }: Props) {
               draft={draft}
               onChange={patchDraft}
               reachLevels={appConfig.reachLevels}
+              exchangeReachLevels={appConfig.exchangeReachLevels}
+              freeCampaignMaxReach={appConfig.freeCampaignMaxReach}
+              dailyFreeCampaignLimit={appConfig.dailyFreeCampaignLimit}
+              freeCampaignsUsedToday={
+                campaigns.filter((c) => c.campaignType === 'exchange' && c.createdAt === new Date().toISOString().slice(0, 10)).length
+              }
               costPerReachNaira={appConfig.costPerReachNaira}
             />
           )}
-          {step === 3 && <ReviewStep draft={draft} onEditStep={handleEditStep} />}
+          {step === 3 && (
+            <ReviewStep
+              draft={draft}
+              costPerReachNaira={appConfig.costPerReachNaira}
+              walletBalance={walletBalance}
+              onEditStep={handleEditStep}
+            />
+          )}
         </ScrollView>
 
         <View style={styles.footer}>

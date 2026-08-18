@@ -48,8 +48,7 @@ export default function WaitlistScreen({ route }: Props) {
 
     try {
       await Share.share({
-        message: `Join KoboAds and get early access! Use my referral link to join the waitlist:\n\n${inviteLink}\n\nI just joined the KoboAds waitlist — it helps small businesses run ads and earn rewards.
-      `,
+        message: `🚀 I just joined KoboAds!\n\nYou can advertise your business for FREE and reach up to 2,000 people every day.\n\nJoin the waitlist and get early access 👇\n\n${inviteLink}\n\n`,
       });
     } catch {
       Alert.alert('Share', 'Unable to open share options on this device.');
@@ -62,9 +61,9 @@ export default function WaitlistScreen({ route }: Props) {
       setError('Please enter your name, email, and WhatsApp number.');
       return;
     }
-    const whatsappPattern = /^\+\d{7,15}$/;
+    const whatsappPattern = /^\+234\d{7,13}$/;
     if (!whatsappPattern.test(trimmedWhatsapp)) {
-      setError('WhatsApp number must start with + and include the country code.');
+      setError('WhatsApp number must be a Nigerian number starting with +234 (e.g. +2348012345678).');
       return;
     }
     setError(null);

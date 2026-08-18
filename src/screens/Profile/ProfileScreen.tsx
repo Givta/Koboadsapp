@@ -19,6 +19,18 @@ interface MenuItem {
 export default function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user, walletBalance, adCredits, earningsBalance, totalAdsViewed, logout } = useApp();
+  const [loggingOut, setLoggingOut] = React.useState(false);
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await logout();
+    } catch (e: any) {
+      Alert.alert('Could not log out', e?.message ?? 'Please check your connection and try again.');
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   const menuItems: MenuItem[] = [
     { icon: 'person-outline', label: 'Personal Information', onPress: () => navigation.navigate('PersonalInfo') },
@@ -85,13 +97,14 @@ export default function ProfileScreen() {
 
         <TouchableOpacity
           style={styles.logoutRow}
+          disabled={loggingOut}
           onPress={() => Alert.alert('Log out', 'Are you sure you want to log out?', [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Log out', style: 'destructive', onPress: logout },
+            { text: 'Log out', style: 'destructive', onPress: handleLogout },
           ])}
         >
           <Ionicons name="log-out-outline" size={18} color={colors.danger} />
-          <Text style={styles.logoutText}>Logout</Text>
+          <Text style={styles.logoutText}>{loggingOut ? 'Logging out…' : 'Logout'}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

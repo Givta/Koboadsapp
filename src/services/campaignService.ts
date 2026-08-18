@@ -19,6 +19,13 @@ interface CreateCampaignResponse {
   status: string;
 }
 
+interface BoostCampaignResponse {
+  success: boolean;
+  campaignId: string;
+  newTargetReach: number;
+  delivered: number;
+}
+
 interface CreateCampaignPayload {
   advertiserId: string;
   title: string;
@@ -26,6 +33,7 @@ interface CreateCampaignPayload {
   category?: string;
   location?: string;
   ageRange?: string;
+  gender?: string;
   businessName?: string;
   websiteLink?: string;
   contact?: string;
@@ -40,6 +48,10 @@ interface CreateCampaignPayload {
 }
 
 const createCampaignCallable = httpsCallable<CreateCampaignPayload, CreateCampaignResponse>(functions, 'createCampaign');
+const boostCampaignCallable = httpsCallable<{ campaignId: string; additionalReach: number }, BoostCampaignResponse>(
+  functions,
+  'boostCampaign'
+);
 
 function formatDate(ts?: Timestamp) {
   if (!ts) return new Date().toISOString().slice(0, 10);
@@ -60,6 +72,7 @@ export function listenCampaigns(uid: string, cb: (campaigns: Campaign[]) => void
           category: data.category,
           location: data.location,
           ageRange: data.ageRange,
+          gender: data.gender,
           businessName: data.businessName,
           websiteLink: data.websiteLink,
           contact: data.contact,
@@ -75,6 +88,7 @@ export function listenCampaigns(uid: string, cb: (campaigns: Campaign[]) => void
           imageColor: data.imageColor,
           mediaUrl: data.mediaUrl,
           mediaType: data.mediaType,
+          rejectionReason: data.rejectionReason ?? null,
         } as Campaign;
       })
     );
@@ -101,6 +115,7 @@ export async function createCampaign(
     category: draft.category,
     location: draft.location || 'All Nigeria',
     ageRange: draft.ageRange,
+    gender: draft.gender || 'All',
     businessName: draft.businessName,
     websiteLink: draft.websiteLink,
     contact: draft.contact,
@@ -119,4 +134,15 @@ export async function createCampaign(
 
 export async function setCampaignStatus(id: string, status: Campaign['status']) {
   await updateDoc(doc(db, 'campaigns', id), { status });
+}
+
+/**
+ * Pays to extend an existing campaign's reach beyond what it already has —
+ * e.g. a free/exchange campaign that used its 1,000-person free cap, or a
+ * paid campaign the advertiser wants to push further. Cost is
+ * additionalReach × costPerReachNaira, debited from the wallet server-side.
+ */
+export async function boostCampaign(campaignId: string, additionalReach: number): Promise<BoostCampaignResponse> {
+  const response = await boostCampaignCallable({ campaignId, additionalReach });
+  return response.data;
 }

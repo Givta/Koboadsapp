@@ -17,6 +17,8 @@ function formatDate(ts?: Timestamp) {
 }
 
 const topUpWalletCallable = httpsCallable<{ amount: number }, { success: boolean }>(functions, 'topUpWallet');
+const initializeTopUpPaymentCallable = httpsCallable<{ amount: number }, { authorizationUrl: string; reference: string }>(functions, 'initializeTopUpPayment');
+const verifyTopUpPaymentCallable = httpsCallable<{ reference: string }, { success: boolean }>(functions, 'verifyTopUpPayment');
 const withdrawFundsCallable = httpsCallable<{ amount: number; method: string }, { success: boolean }>(functions, 'withdrawFunds');
 
 export function listenTransactions(uid: string, cb: (txns: Transaction[]) => void) {
@@ -59,6 +61,15 @@ export function listenWithdrawals(uid: string, cb: (items: WithdrawalRequest[]) 
 /** Manual wallet top-up. The actual balance update is now enforced server-side. */
 export async function topUpWallet(_uid: string, amount: number) {
   await topUpWalletCallable({ amount });
+}
+
+export async function initializeTopUpPayment(_uid: string, amount: number) {
+  const response = await initializeTopUpPaymentCallable({ amount });
+  return response.data;
+}
+
+export async function verifyTopUpPayment(_uid: string, reference: string) {
+  await verifyTopUpPaymentCallable({ reference });
 }
 
 /** Debits the wallet to fund a paid campaign. This is now handled by the Cloud Function. */

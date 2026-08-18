@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Constants from 'expo-constants';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import ScreenHeader from '../../components/ScreenHeader';
 import { useApp } from '../../context/AppContext';
 import { RootStackParamList } from '../../navigation/RootNavigator';
 import { sendVerificationEmail, requestPasswordReset } from '../../services/authService';
+import * as notificationService from '../../services/notificationService';
 import { colors } from '../../theme/colors';
 import { fontSize, radius, spacing } from '../../theme/spacing';
 
@@ -18,12 +19,14 @@ function SettingRow({
   description,
   value,
   onValueChange,
+  disabled,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   description?: string;
   value: boolean;
   onValueChange: (v: boolean) => void;
+  disabled?: boolean;
 }) {
   return (
     <View style={styles.row}>
@@ -37,6 +40,7 @@ function SettingRow({
       <Switch
         value={value}
         onValueChange={onValueChange}
+        disabled={disabled}
         trackColor={{ false: colors.border, true: colors.primary }}
         thumbColor="#fff"
       />
@@ -46,10 +50,9 @@ function SettingRow({
 
 export default function SettingsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { user, toggleReceiveAds } = useApp();
-  const [pushNotifications, setPushNotifications] = useState(true);
-  const [emailUpdates, setEmailUpdates] = useState(true);
-  const [marketingTips, setMarketingTips] = useState(false);
+  const { user, toggleReceiveAds, updateNotificationPrefs, deleteAccount } = useApp();
+  const [pushBusy, setPushBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const handleSendVerificationEmail = async () => {
     try {
@@ -67,6 +70,52 @@ export default function SettingsScreen() {
     } catch (error: any) {
       Alert.alert('Could not send reset email', error?.message ?? 'Please try again later.');
     }
+  };
+
+  const handlePushToggle = async (value: boolean) => {
+    setPushBusy(true);
+    try {
+      if (value) {
+        const token = await notificationService.registerForPushNotificationsAsync(user.id);
+        if (!token && Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
+          Alert.alert(
+            'Could not enable push',
+            'Allow notification permission for KoboAds in your device settings, then try again.'
+          );
+          return;
+        }
+      } else {
+        await notificationService.unregisterForPushNotificationsAsync(user.id);
+      }
+      await updateNotificationPrefs({ push: value });
+    } catch (e: any) {
+      Alert.alert('Could not update setting', e?.message ?? 'Please try again.');
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete account',
+      'This permanently deletes your account and sign-in — this action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteAccount();
+            } catch (e: any) {
+              Alert.alert('Could not delete account', e?.message ?? 'Please try again or contact support.');
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -90,15 +139,26 @@ export default function SettingsScreen() {
             icon="notifications-outline"
             label="Push notifications"
             description={
-              Constants.appOwnership === 'expo'
+              Constants.executionEnvironment === ExecutionEnvironment.StoreClient
                 ? 'Remote push requires a dev or standalone build; Expo Go does not support it.'
                 : 'Allow push notifications for campaign alerts and offers.'
             }
-            value={pushNotifications}
-            onValueChange={setPushNotifications}
+            value={user.notificationPrefs.push}
+            onValueChange={handlePushToggle}
+            disabled={pushBusy}
           />
-          <SettingRow icon="mail-outline" label="Email updates" value={emailUpdates} onValueChange={setEmailUpdates} />
-          <SettingRow icon="bulb-outline" label="Marketing tips" value={marketingTips} onValueChange={setMarketingTips} />
+          <SettingRow
+            icon="mail-outline"
+            label="Email updates"
+            value={user.notificationPrefs.email}
+            onValueChange={(v) => updateNotificationPrefs({ email: v })}
+          />
+          <SettingRow
+            icon="bulb-outline"
+            label="Marketing tips"
+            value={user.notificationPrefs.marketing}
+            onValueChange={(v) => updateNotificationPrefs({ marketing: v })}
+          />
         </View>
 
         <Text style={styles.sectionTitle}>Account</Text>
@@ -127,11 +187,12 @@ export default function SettingsScreen() {
             <Text style={styles.linkText}>Reset password</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.linkRow, { borderBottomWidth: 0 }]} onPress={() => Alert.alert('Delete account', 'This action cannot be undone.', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Delete', style: 'destructive' },
-          ])}>
-            <Text style={[styles.linkText, { color: colors.danger }]}>Delete account</Text>
+          <TouchableOpacity
+            style={[styles.linkRow, { borderBottomWidth: 0 }]}
+            disabled={deleting}
+            onPress={handleDeleteAccount}
+          >
+            <Text style={[styles.linkText, { color: colors.danger }]}>{deleting ? 'Deleting…' : 'Delete account'}</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.danger} />
           </TouchableOpacity>
         </View>

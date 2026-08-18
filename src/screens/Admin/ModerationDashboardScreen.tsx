@@ -101,8 +101,8 @@ export default function ModerationDashboardScreen() {
         <Text style={styles.cardValue}>{item.createdAt}</Text>
       </View>
       <View style={styles.buttonRow}>
-        <Button label="Approve" onPress={() => handleApproveCampaign(item.id)} />
-        <Button label="Reject" variant="outline" onPress={() => handleRejectCampaign(item.id)} />
+        <Button label="Approve" fullWidth={false} style={{ flex: 1 }} onPress={() => handleApproveCampaign(item.id)} />
+        <Button label="Reject" variant="outline" fullWidth={false} style={{ flex: 1 }} onPress={() => handleRejectCampaign(item.id)} />
       </View>
     </View>
   );
@@ -126,8 +126,8 @@ export default function ModerationDashboardScreen() {
         <Text style={styles.cardValue}>{item.createdAt}</Text>
       </View>
       <View style={styles.buttonRow}>
-        <Button label="Approve" onPress={() => handleApproveMedia(item.id)} />
-        <Button label="Reject" variant="outline" onPress={() => handleRejectMedia(item.id)} />
+        <Button label="Approve" fullWidth={false} style={{ flex: 1 }} onPress={() => handleApproveMedia(item.id)} />
+        <Button label="Reject" variant="outline" fullWidth={false} style={{ flex: 1 }} onPress={() => handleRejectMedia(item.id)} />
       </View>
     </View>
   );
@@ -148,9 +148,9 @@ export default function ModerationDashboardScreen() {
       </View>
       <Text style={styles.details}>{item.details}</Text>
       <View style={styles.buttonRow}>
-        <Button label="Reviewed" onPress={() => handleResolveReport(item.id, 'reviewed')} />
-        <Button label="Actioned" variant="outline" onPress={() => handleResolveReport(item.id, 'actioned')} />
-        <Button label="Dismiss" variant="ghost" onPress={() => handleResolveReport(item.id, 'dismissed')} />
+        <Button label="Reviewed" fullWidth={false} style={{ flex: 1 }} onPress={() => handleResolveReport(item.id, 'reviewed')} />
+        <Button label="Actioned" variant="outline" fullWidth={false} style={{ flex: 1 }} onPress={() => handleResolveReport(item.id, 'actioned')} />
+        <Button label="Dismiss" variant="ghost" fullWidth={false} style={{ flex: 1 }} onPress={() => handleResolveReport(item.id, 'dismissed')} />
       </View>
     </View>
   );

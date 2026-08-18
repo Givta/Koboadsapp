@@ -13,7 +13,7 @@ import { RootStackParamList } from './RootNavigator';
 
 export type MainTabParamList = {
   Home: undefined;
-  Ads: undefined;
+  Ads: { initialSection?: 'mine' | 'received' } | undefined;
   CreateAdTab: undefined;
   Earn: undefined;
   Profile: undefined;

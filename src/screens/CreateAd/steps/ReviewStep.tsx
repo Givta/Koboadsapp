@@ -18,12 +18,16 @@ function Row({ label, value }: { label: string; value: string }) {
 
 export default function ReviewStep({
   draft,
+  costPerReachNaira,
+  walletBalance,
   onEditStep,
 }: {
   draft: NewAdDraft;
+  costPerReachNaira: number;
+  walletBalance?: number;
   onEditStep?: (step: number) => void;
 }) {
-  const estimatedCost = draft.campaignType === 'paid' ? Math.round(draft.reach * 0.8) : 0;
+  const estimatedCost = draft.campaignType === 'paid' ? Math.round(draft.reach * costPerReachNaira) : 0;
   const editOptions = [
     { label: 'Ad details', step: 0, hint: 'Title, description, media and contact info' },
     { label: 'Targeting', step: 1, hint: 'Audience, location and category' },
@@ -71,6 +75,13 @@ export default function ReviewStep({
         <Row label="Expected reach" value={`${draft.reach.toLocaleString()} people`} />
         <Row label="Campaign duration" value="Until reach target is met" />
       </View>
+      {draft.campaignType === 'paid' && walletBalance !== undefined && walletBalance < estimatedCost ? (
+        <View style={styles.warningBox}>
+          <Text style={styles.warningText}>
+            Your wallet balance is insufficient for this campaign. Top up before launching to avoid failure.
+          </Text>
+        </View>
+      ) : null}
 
       <View style={styles.termsRow}>
         <Ionicons name="shield-checkmark-outline" size={16} color={colors.textMuted} />
@@ -136,4 +147,6 @@ const styles = StyleSheet.create({
   rowValue: { fontSize: fontSize.sm, color: colors.textDark, fontWeight: '700', flexShrink: 1, textAlign: 'right' },
   termsRow: { flexDirection: 'row', gap: 8, marginTop: spacing.lg, paddingHorizontal: spacing.xs },
   termsText: { flex: 1, fontSize: fontSize.xs, color: colors.textMuted, lineHeight: 16 },
+  warningBox: { marginTop: spacing.lg, backgroundColor: colors.warningBg, padding: spacing.md, borderRadius: radius.md },
+  warningText: { color: colors.warning, fontSize: fontSize.xs, lineHeight: 18 },
 });

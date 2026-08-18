@@ -3,17 +3,26 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 import { AppState, AppStateStatus, Platform } from 'react-native';
 import { User as FirebaseUser, getIdTokenResult } from 'firebase/auth';
 import * as authService from '../services/authService';
-import { listenUser, ensureDailyReset, setReceivesAds, updateProfileFields } from '../services/userService';
-import { listenTransactions, listenWithdrawals, topUpWallet as topUpWalletSvc, withdrawFunds as withdrawFundsSvc } from '../services/walletService';
-import { listenCampaigns, createCampaign as createCampaignSvc, setCampaignStatus } from '../services/campaignService';
-import { listenAvailableAds, watchAd as watchAdSvc } from '../services/deliveryService';
+import {
+  listenUser,
+  ensureDailyReset,
+  setReceivesAds,
+  updateProfileFields,
+  updateNotificationPrefs as updateNotificationPrefsSvc,
+  completeProfile as completeProfileSvc,
+} from '../services/userService';
+import { listenTransactions, listenWithdrawals, topUpWallet as topUpWalletSvc, initializeTopUpPayment as initializeTopUpPaymentSvc, verifyTopUpPayment as verifyTopUpPaymentSvc, withdrawFunds as withdrawFundsSvc } from '../services/walletService';
+import { listenCampaigns, createCampaign as createCampaignSvc, setCampaignStatus, boostCampaign as boostCampaignSvc } from '../services/campaignService';
+import { listenAvailableAds, listenReceivedAdsHistory, watchAd as watchAdSvc } from '../services/deliveryService';
 import { listenReferrals } from '../services/referralService';
+import { listenNotifications, markNotificationRead as markNotificationReadSvc } from '../services/notificationsFeedService';
 import { listenAppConfig, AppConfigState } from '../services/configService';
 import * as notificationService from '../services/notificationService';
 import { DAILY_EARN_LIMIT } from '../data/constants';
 import { isFirebaseConfigured } from '../services/firebase';
 import {
   AvailableAd,
+  AppNotification,
   Campaign,
   NewAdDraft,
   ReferralEntry,
@@ -36,6 +45,9 @@ interface AppContextValue {
   adCredits: number;
   campaigns: Campaign[];
   availableAds: AvailableAd[];
+  receivedAds: AvailableAd[];
+  notifications: AppNotification[];
+  markNotificationRead: (id: string) => Promise<void>;
   transactions: Transaction[];
   withdrawals: WithdrawalRequest[];
   referrals: ReferralEntry[];
@@ -46,13 +58,19 @@ interface AppContextValue {
   isAdmin: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   register: (input: { name: string; email: string; phone: string; password: string; wantsToReceiveAds: boolean; referralCode?: string }) => Promise<void>;
   createCampaign: (draft: NewAdDraft) => Promise<Campaign | undefined>;
+  boostCampaign: (campaignId: string, additionalReach: number) => Promise<void>;
   topUpWallet: (amount: number) => Promise<void>;
+  initializeTopUpPayment: (amount: number) => Promise<{ authorizationUrl: string; reference: string }>;
+  verifyTopUpPayment: (reference: string) => Promise<void>;
   withdrawFunds: (amount: number, method: string) => Promise<void>;
   watchAd: (deliveryId: string) => Promise<void>;
   toggleReceiveAds: (value: boolean) => Promise<void>;
   updateProfile: (patch: Partial<Pick<User, 'name' | 'phone' | 'location' | 'businessName'>>) => Promise<void>;
+  updateNotificationPrefs: (patch: Partial<User['notificationPrefs']>) => Promise<void>;
+  completeProfile: (data: { ageRange: string; gender: string; state: string; location: string; businessCategory: string }) => Promise<void>;
   pauseCampaign: (id: string) => Promise<void>;
   resumeCampaign: (id: string) => Promise<void>;
 }
@@ -81,6 +99,7 @@ const EMPTY_USER: User = {
   email: '',
   phone: '',
   location: '',
+  profileCompleted: false,
   businessName: '',
   accountType: 'exchange',
   role: 'user',
@@ -90,6 +109,7 @@ const EMPTY_USER: User = {
   phoneVerified: false,
   avatarInitials: 'U',
   referralCode: '',
+  notificationPrefs: { push: true, email: true, marketing: false },
 };
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -119,6 +139,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [totalAdsViewed, setTotalAdsViewed] = useState(0);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [availableAds, setAvailableAds] = useState<AvailableAd[]>([]);
+  const [receivedAds, setReceivedAds] = useState<AvailableAd[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
@@ -128,6 +150,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     locations: [],
     ageRanges: [],
     reachLevels: [],
+    exchangeReachLevels: [],
+    boostReachSteps: [],
+    freeCampaignMaxReach: 1000,
+    dailyFreeCampaignLimit: 2,
     costPerReachNaira: 0,
     rewardPerAdNaira: 0,
   });
@@ -187,6 +213,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setTotalAdsViewed(0);
       setCampaigns([]);
       setAvailableAds([]);
+      setReceivedAds([]);
+      setNotifications([]);
       setTransactions([]);
       setWithdrawals([]);
       setReferrals([]);
@@ -277,6 +305,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setIsSyncing(false);
         setSyncError(null);
       }),
+      listenReceivedAdsHistory(firebaseUser.uid, setReceivedAds),
+      listenNotifications(firebaseUser.uid, setNotifications),
       listenTransactions(firebaseUser.uid, (items) => {
         setTransactions(items);
         writeCache(cacheKey(firebaseUser.uid, 'transactions'), items);
@@ -410,6 +440,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const deleteAccount = async () => {
+    await authService.deleteOwnAccount();
+    // The Cloud Function deletes the Auth user server-side; signOut locally
+    // clears the client's now-stale session so RootNavigator falls back to
+    // Onboarding instead of trying to keep using a deleted account.
+    await authService.logoutUser().catch(() => {});
+  };
+
   const register: AppContextValue['register'] = async (input) => {
     setAuthError(null);
     try {
@@ -470,6 +508,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await topUpWalletSvc(firebaseUser.uid, amount);
   };
 
+  const initializeTopUpPayment = async (amount: number) => {
+    if (!firebaseUser) throw new Error('Not signed in.');
+    return initializeTopUpPaymentSvc(firebaseUser.uid, amount);
+  };
+
+  const verifyTopUpPayment = async (reference: string) => {
+    if (!firebaseUser) throw new Error('Not signed in.');
+    return verifyTopUpPaymentSvc(firebaseUser.uid, reference);
+  };
+
   const withdrawFunds = async (amount: number, method: string) => {
     if (!firebaseUser) return;
     await withdrawFundsSvc(firebaseUser.uid, amount, method);
@@ -490,8 +538,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await updateProfileFields(firebaseUser.uid, patch);
   };
 
+  const updateNotificationPrefsAction: AppContextValue['updateNotificationPrefs'] = async (patch) => {
+    if (!firebaseUser) return;
+    await updateNotificationPrefsSvc(firebaseUser.uid, patch);
+  };
+
+  const completeProfileAction: AppContextValue['completeProfile'] = async (data) => {
+    if (!firebaseUser) return;
+    await completeProfileSvc(firebaseUser.uid, data);
+  };
+
   const pauseCampaign = async (id: string) => setCampaignStatus(id, 'paused');
   const resumeCampaign = async (id: string) => setCampaignStatus(id, 'active');
+  const boostCampaign = async (campaignId: string, additionalReach: number) => {
+    await boostCampaignSvc(campaignId, additionalReach);
+  };
+
+  const markNotificationRead = async (id: string) => {
+    await markNotificationReadSvc(id);
+  };
 
   const value = useMemo<AppContextValue>(
     () => ({
@@ -508,6 +573,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       earningsBalance,
       campaigns,
       availableAds,
+      receivedAds,
+      notifications,
+      markNotificationRead,
       transactions,
       withdrawals,
       referrals,
@@ -517,13 +585,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       totalAdsViewed,
       login,
       logout,
+      deleteAccount,
       register,
       createCampaign,
+      boostCampaign,
       topUpWallet,
+      initializeTopUpPayment,
+      verifyTopUpPayment,
       withdrawFunds,
       watchAd,
       toggleReceiveAds,
       updateProfile,
+      updateNotificationPrefs: updateNotificationPrefsAction,
+      completeProfile: completeProfileAction,
       pauseCampaign,
       resumeCampaign,
       isAdmin,
@@ -541,6 +615,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       earningsBalance,
       campaigns,
       availableAds,
+      receivedAds,
+      notifications,
+      markNotificationRead,
       transactions,
       withdrawals,
       referrals,

@@ -1,14 +1,18 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
 import { useApp } from '../context/AppContext';
+import { AvailableAd } from '../types';
 import LoginScreen from '../screens/Auth/LoginScreen';
 import RegisterScreen from '../screens/Auth/RegisterScreen';
 import WaitlistScreen from '../screens/Waitlist/WaitlistScreen';
 import CampaignDetailScreen from '../screens/CampaignDetail/CampaignDetailScreen';
+import AdViewerScreen from '../screens/AdViewer/AdViewerScreen';
 import CreateAdScreen from '../screens/CreateAd/CreateAdScreen';
 import OnboardingScreen from '../screens/Onboarding/OnboardingScreen';
+import CompleteProfileScreen from '../screens/Onboarding/CompleteProfileScreen';
 import PersonalInfoScreen from '../screens/Profile/PersonalInfoScreen';
 import ReferralScreen from '../screens/Profile/ReferralScreen';
+import NotificationsScreen from '../screens/Notifications/NotificationsScreen';
 import ReportAbuseScreen from '../screens/Profile/ReportAbuseScreen';
 import AccountRecoveryScreen from '../screens/Auth/AccountRecoveryScreen';
 import VerifyPhoneScreen from '../screens/Profile/VerifyPhoneScreen';
@@ -22,16 +26,19 @@ import MainTabs from './MainTabs';
 
 export type RootStackParamList = {
   Onboarding: undefined;
+  CompleteProfile: undefined;
   Login: undefined;
   Register: { ref?: string } | undefined;
   Waitlist: { ref?: string } | undefined;
   MainTabs: undefined;
   CreateAd: undefined;
   CampaignDetail: { campaignId: string };
+  AdViewer: { ad: AvailableAd };
   PersonalInfo: undefined;
   Wallet: undefined;
   WithdrawalHistory: undefined;
   Referral: undefined;
+  Notifications: undefined;
   ReportAbuse: { reportedCampaignId?: string; reportedUserId?: string } | undefined;
   AccountRecovery: undefined;
   VerifyPhone: undefined;
@@ -44,7 +51,12 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
-  const { isAuthenticated } = useApp();
+  const { isAuthenticated, isSyncing, user } = useApp();
+  // Wait for the first real snapshot (or cache restore) before deciding
+  // whether the mandatory profile-completion gate applies — otherwise every
+  // sign-in would flash CompleteProfile for a frame while EMPTY_USER's
+  // default `profileCompleted: false` is still in place.
+  const needsProfileCompletion = isAuthenticated && !isSyncing && !user.profileCompleted;
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -56,15 +68,19 @@ export default function RootNavigator() {
           <Stack.Screen name="Waitlist" component={WaitlistScreen} />
           <Stack.Screen name="AccountRecovery" component={AccountRecoveryScreen} />
         </Stack.Group>
+      ) : needsProfileCompletion ? (
+        <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
       ) : (
         <Stack.Group>
           <Stack.Screen name="MainTabs" component={MainTabs} />
           <Stack.Screen name="CreateAd" component={CreateAdScreen} options={{ presentation: 'modal' }} />
           <Stack.Screen name="CampaignDetail" component={CampaignDetailScreen} />
+          <Stack.Screen name="AdViewer" component={AdViewerScreen} options={{ presentation: 'modal' }} />
           <Stack.Screen name="PersonalInfo" component={PersonalInfoScreen} />
           <Stack.Screen name="Wallet" component={WalletScreen} />
           <Stack.Screen name="WithdrawalHistory" component={WithdrawalHistoryScreen} />
           <Stack.Screen name="Referral" component={ReferralScreen} />
+          <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen name="Settings" component={SettingsScreen} />
           <Stack.Screen name="VerifyPhone" component={VerifyPhoneScreen} />
           <Stack.Screen name="Support" component={SupportScreen} />
