@@ -2,10 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useState } from 'react';
-import { Alert, FlatList, Linking, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
+import ModalSheet from '../../components/ModalSheet';
 import ScreenHeader from '../../components/ScreenHeader';
 import { useApp } from '../../context/AppContext';
 import { RootStackParamList } from '../../navigation/RootNavigator';
@@ -140,16 +141,8 @@ export default function WalletScreen() {
         }}
       />
 
-      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Top Up Wallet</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={22} color={colors.textDark} />
-              </TouchableOpacity>
-            </View>
-            {paymentReference ? (
+      <ModalSheet visible={modalVisible} title="Top Up Wallet" onClose={() => setModalVisible(false)}>
+        {paymentReference ? (
               <View>
                 <Text style={styles.modalNotice}>
                   Complete payment in your browser, then tap Verify Payment below.
@@ -172,7 +165,7 @@ export default function WalletScreen() {
                   <Text style={styles.cancelText}>Cancel payment</Text>
                 </TouchableOpacity>
               </View>
-            ) : (
+          ) : (
               <>
                 <View style={styles.amountGrid}>
                   {TOPUP_AMOUNTS.map((amt) => (
@@ -195,10 +188,8 @@ export default function WalletScreen() {
                   onPress={() => handleTopUp(Number(customAmount) || 0)}
                 />
               </>
-            )}
-          </View>
-        </View>
-      </Modal>
+        )}
+      </ModalSheet>
     </SafeAreaView>
   );
 }
@@ -232,16 +223,6 @@ const styles = StyleSheet.create({
   txDate: { fontSize: fontSize.xs, color: colors.textMuted, marginTop: 2 },
   txAmount: { fontSize: fontSize.sm, fontWeight: '800' },
   txPending: { fontSize: fontSize.xs, color: colors.warning, marginTop: 2 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalCard: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    padding: spacing.xl,
-    paddingBottom: spacing.xxxl,
-  },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl },
-  modalTitle: { fontSize: fontSize.lg, fontWeight: '800', color: colors.textDark },
   amountGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
   amountChip: {
     paddingHorizontal: spacing.lg,

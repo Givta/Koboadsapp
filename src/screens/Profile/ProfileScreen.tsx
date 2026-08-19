@@ -82,6 +82,21 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        <View style={styles.walletActionsRow}>
+          <TouchableOpacity style={styles.walletActionBtn} activeOpacity={0.85} onPress={() => navigation.navigate('Wallet')}>
+            <View style={[styles.walletActionIconWrap, { backgroundColor: '#FDF3E3' }]}>
+              <Ionicons name="wallet-outline" size={20} color={colors.gold} />
+            </View>
+            <Text style={styles.walletActionLabel}>Top Up</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.walletActionBtn} activeOpacity={0.85} onPress={() => navigation.navigate('WithdrawalHistory')}>
+            <View style={[styles.walletActionIconWrap, { backgroundColor: '#F1EBFE' }]}>
+              <Ionicons name="arrow-down-circle-outline" size={20} color="#8B5CF6" />
+            </View>
+            <Text style={styles.walletActionLabel}>Withdraw</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.menu}>
           {menuItems.map((item, i) => (
             <TouchableOpacity key={item.label} style={[styles.menuRow, i === menuItems.length - 1 && { borderBottomWidth: 0 }]} onPress={item.onPress}>
@@ -163,6 +178,31 @@ const styles = StyleSheet.create({
   statDivider: { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.3)' },
   statValue: { color: '#fff', fontSize: fontSize.md, fontWeight: '800' },
   statLabel: { color: 'rgba(255,255,255,0.8)', fontSize: fontSize.xs, marginTop: 2 },
+  walletActionsRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginHorizontal: spacing.xl,
+    marginTop: spacing.xl,
+  },
+  walletActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+  },
+  walletActionIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  walletActionLabel: { fontSize: fontSize.sm, fontWeight: '700', color: colors.textDark },
   menu: {
     backgroundColor: colors.card,
     marginHorizontal: spacing.xl,

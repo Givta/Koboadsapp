@@ -6,6 +6,10 @@ web-build/
 .expo-dev/
 .expo/dev/
 
+# Android release signing credentials
+android/keystore.properties
+android/app/*.keystore
+
 # Firebase and environment — never commit real secrets. .env.example is a
 # template with no real values, so it's intentionally NOT excluded.
 .env

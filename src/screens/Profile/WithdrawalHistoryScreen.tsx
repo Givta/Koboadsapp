@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { Alert, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../../components/Button';
 import EmptyState from '../../components/EmptyState';
 import Input from '../../components/Input';
+import ModalSheet from '../../components/ModalSheet';
 import ScreenHeader from '../../components/ScreenHeader';
 import { useApp } from '../../context/AppContext';
 import { colors } from '../../theme/colors';
@@ -89,21 +90,11 @@ export default function WithdrawalHistoryScreen() {
         ListEmptyComponent={<EmptyState icon="time-outline" title="No withdrawals yet" subtitle="Your withdrawal history will appear here." />}
       />
 
-      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Request Withdrawal</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={22} color={colors.textDark} />
-              </TouchableOpacity>
-            </View>
-            <Input label="Amount" placeholder="₦0.00" keyboardType="number-pad" value={amount} onChangeText={setAmount} />
-            <Input label="Payout method" placeholder="e.g. GTBank •••• 4821" value={method} onChangeText={setMethod} />
-            <Button label="Submit Request" loading={submitting} onPress={handleWithdraw} />
-          </View>
-        </View>
-      </Modal>
+      <ModalSheet visible={modalVisible} title="Request Withdrawal" onClose={() => setModalVisible(false)}>
+        <Input label="Amount" placeholder="₦0.00" keyboardType="number-pad" value={amount} onChangeText={setAmount} />
+        <Input label="Payout method" placeholder="e.g. GTBank •••• 4821" value={method} onChangeText={setMethod} />
+        <Button label="Submit Request" loading={submitting} onPress={handleWithdraw} />
+      </ModalSheet>
     </SafeAreaView>
   );
 }
@@ -136,14 +127,4 @@ const styles = StyleSheet.create({
   date: { fontSize: fontSize.xs, color: colors.textFaint, marginTop: 2 },
   statusPill: { paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.pill },
   statusText: { fontSize: fontSize.xs, fontWeight: '700' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalCard: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    padding: spacing.xl,
-    paddingBottom: spacing.xxxl,
-  },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl },
-  modalTitle: { fontSize: fontSize.lg, fontWeight: '800', color: colors.textDark },
 });

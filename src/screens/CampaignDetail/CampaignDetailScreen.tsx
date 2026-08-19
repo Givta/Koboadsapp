@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import React, { useState } from 'react';
-import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Badge from '../../components/Badge';
 import Button from '../../components/Button';
+import ModalSheet from '../../components/ModalSheet';
 import ProgressBar from '../../components/ProgressBar';
 import ScreenHeader from '../../components/ScreenHeader';
 import { useApp } from '../../context/AppContext';
@@ -165,37 +166,27 @@ export default function CampaignDetailScreen({ route, navigation }: Props) {
         />
       </ScrollView>
 
-      <Modal visible={boostVisible} animationType="slide" transparent onRequestClose={() => setBoostVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Boost this campaign</Text>
-              <TouchableOpacity onPress={() => setBoostVisible(false)}>
-                <Ionicons name="close" size={22} color={colors.textDark} />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.modalSub}>How many more people should see this ad?</Text>
-            <View style={styles.boostGrid}>
-              {appConfig.boostReachSteps.map((step) => (
-                <TouchableOpacity
-                  key={step}
-                  style={[styles.boostOption, selectedBoost === step && styles.boostOptionActive]}
-                  onPress={() => setSelectedBoost(step)}
-                >
-                  <Text style={[styles.boostOptionText, selectedBoost === step && styles.boostOptionTextActive]}>
-                    +{step.toLocaleString()}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <View style={styles.costCard}>
-              <Text style={styles.costLabel}>Cost</Text>
-              <Text style={styles.costValue}>₦{boostCost.toLocaleString()}</Text>
-            </View>
-            <Button label="Confirm Boost" onPress={handleConfirmBoost} loading={boosting} disabled={!selectedBoost} />
-          </View>
+      <ModalSheet visible={boostVisible} title="Boost this campaign" onClose={() => setBoostVisible(false)}>
+        <Text style={styles.modalSub}>How many more people should see this ad?</Text>
+        <View style={styles.boostGrid}>
+          {appConfig.boostReachSteps.map((step) => (
+            <TouchableOpacity
+              key={step}
+              style={[styles.boostOption, selectedBoost === step && styles.boostOptionActive]}
+              onPress={() => setSelectedBoost(step)}
+            >
+              <Text style={[styles.boostOptionText, selectedBoost === step && styles.boostOptionTextActive]}>
+                +{step.toLocaleString()}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
-      </Modal>
+        <View style={styles.costCard}>
+          <Text style={styles.costLabel}>Cost</Text>
+          <Text style={styles.costValue}>₦{boostCost.toLocaleString()}</Text>
+        </View>
+        <Button label="Confirm Boost" onPress={handleConfirmBoost} loading={boosting} disabled={!selectedBoost} />
+      </ModalSheet>
     </SafeAreaView>
   );
 }
@@ -247,16 +238,6 @@ const styles = StyleSheet.create({
   },
   boostTitle: { fontSize: fontSize.sm, fontWeight: '800', color: colors.primaryDark },
   boostDesc: { fontSize: fontSize.xs, color: colors.primaryDark, marginTop: 2, lineHeight: 16 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalCard: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    padding: spacing.xl,
-    paddingBottom: spacing.xxxl,
-  },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
-  modalTitle: { fontSize: fontSize.lg, fontWeight: '800', color: colors.textDark },
   modalSub: { fontSize: fontSize.sm, color: colors.textMuted, marginBottom: spacing.lg },
   boostGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
   boostOption: {
